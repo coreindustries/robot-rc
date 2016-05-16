@@ -1,3 +1,7 @@
+// https://github.com/jacobrosenthal/arduino-cli
+// https://github.com/arduino/Arduino/blob/ide-1.5.x/build/shared/manpage.adoc
+
+
 // Sketch for controlling Toby/mecanum robot from a RC radio controller
 
 #include <Sabertooth.h>
