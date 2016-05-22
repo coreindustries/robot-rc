@@ -8,8 +8,8 @@
 #include <SoftwareSerial.h>
 
 // RC receiver vars
-int ch1; // steering
-int ch2; // throttle
+volatile int ch1; // steering
+volatile int ch2; // throttle
 int steering; // normalized ch1
 int throttle; // normalized ch2
 int steer_min; // min value seen
@@ -21,6 +21,9 @@ int throttle_max;
 int steer; // steer mapped to -255,255
 int power; // drive power mapped to -255,255
 
+// software serial #1: RX = digital pin 10, TX = digital pin 11
+SoftwareSerial monitorSerial(10, 11);
+
 // Sabertooth vars
 const int Rear = 1;
 const int Front = 2;
@@ -29,10 +32,14 @@ Sabertooth Right = Sabertooth(129);
 
 void setup()
 {
+  interrupts();
+  
   // receiver
-  pinMode(5, INPUT); // Set our input pins as such
-  pinMode(6, INPUT);
-  Serial.begin(115200); // Pour a bowl of Serial
+  pinMode(2, INPUT);          // Set our input pins as such
+  pinMode(3, INPUT);
+//  Serial.begin(115200);       // Serial to Sabertooth
+  monitorSerial.begin(9600);  // Serial to laptop via USB TTL cable begin
+  monitorSerial.println("TobyToy started");
 
   steer_min = 960;
   steer_max = 2040;
@@ -56,19 +63,20 @@ void loop()
 {
   //
   // LISTEN FOR SIGNALS FROM CONTROLLER
-  ch1 = pulseIn(5, HIGH, 25000); // Read the pulse width of 
-  ch2 = pulseIn(6, HIGH, 25000); // each channel
+  ch1 = pulseIn(2, HIGH, 25000); // Read the pulse width of. 25000
+  delay(5);
+  ch2 = pulseIn(3, HIGH, 25000); // each channel. 25000
 
   steering = ch1 != 0 ? ch1 : steering;
   throttle = ch2 != 0 ? ch2 : throttle;
 //  throttle = ch2;
 
   // RAW VALUES
-//  Serial.print("Steering:"); // Print the value of 
-//  Serial.print(steering);        // each channel
-//  Serial.print(" | ");
-//  Serial.print("Throttle:");
-//  Serial.println(throttle);
+  monitorSerial.print("Steering:"); // Print the value of 
+  monitorSerial.print(steering);        // each channel
+  monitorSerial.print(" | ");
+  monitorSerial.print("Throttle:");
+  monitorSerial.println(throttle);
 
   steer = map(steering, steer_min,steer_max, -255, 255); //center over zero
   power = map(throttle, throttle_min, throttle_max, -255, 255);
@@ -88,7 +96,7 @@ void loop()
 //  Left.motor(Front, 0); //Left Front
 //  Right.motor(Rear, 0); //Right Rear
 //  Right.motor(Front, 0); //Right Front
-//  delay(100);
+  delay(50);
   
 };
 
