@@ -5,6 +5,7 @@
 // Sketch for controlling Toby/mecanum robot from a RC radio controller
 
 #include <Sabertooth.h>
+#include <SoftwareSerial.h>
 
 // RC receiver vars
 int ch1; // steering
