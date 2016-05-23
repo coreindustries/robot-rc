@@ -14,13 +14,13 @@ int steering; // normalized ch1
 int throttle; // normalized ch2
 int steer_min; // min value seen
 int steer_max; // max value seen
-int steer_deadband; // amount control pushes beyond to affect motion
+const int steer_deadband = 10; // amount control pushes beyond to affect motion
 const int power_deadband = 5; 
 int throttle_min;
 int throttle_max;
 int steer; // steer mapped to -255,255
 int power; // drive power mapped to -255,255
-const int MAXPOWER = 30; // max drive power available
+const int MAXPOWER = 20; // max drive power available
 
 // software serial #1: RX = digital pin 10, TX = digital pin 11
 SoftwareSerial monitorSerial(10, 11);
@@ -39,12 +39,11 @@ void setup()
   pinMode(2, INPUT);          // Set our input pins as such
   pinMode(3, INPUT);
 //  Serial.begin(115200);       // Serial to Sabertooth
-  monitorSerial.begin(9600);  // Serial to laptop via USB TTL cable begin
+  monitorSerial.begin(115200);  // Serial to laptop via USB TTL cable begin
   monitorSerial.println("TobyToy started");
 
   steer_min = 960;
   steer_max = 2040;
-  steer_deadband = 10;
   throttle_min = 910;
   throttle_max = 2000;
 //  power_deadband = 10;
@@ -65,13 +64,13 @@ void loop()
 {
   //
   // LISTEN FOR SIGNALS FROM CONTROLLER
-  ch1 = pulseIn(2, HIGH, 25000); // Read the pulse width of. 25000
+  ch1 = pulseIn(2, HIGH, 25000); // steering. Read the pulse width of. 25000
   delay(5);
-  ch2 = pulseIn(3, HIGH, 25000); // each channel. 25000
+  ch2 = pulseIn(3, HIGH, 25000); // throttle.set at 25000
 
-  steering = ch1 != 0 ? ch1 : steering;
+  steering = ch1 != 0 ? ch1 : steering; // if we get a non-zero value, update, else leave it
   throttle = ch2 != 0 ? ch2 : throttle;
-//  throttle = ch2;
+
 
   // RAW VALUES
 //  monitorSerial.print("Steering:"); // Print the value of 
@@ -95,15 +94,22 @@ void loop()
 
 
   driveRobot(power, steer);
+//    testSteer(steer, power);
   
   // SEND COMMANDS TO MOTOR CONTROLLERS
 //  Left.motor(Rear, 0); //Left Rear
 //  Left.motor(Front, -10); //Left Front
 //  Right.motor(Rear, 0); //Right Rear
 //  Right.motor(Front, 10); //Right Front
-  delay(50);
+//  delay(5);
   
 };
+
+
+void testSteer(int steer, int power){
+  monitorSerial.println(steer);
+}
+
 
 
 // main entry to driving the robot
@@ -111,26 +117,35 @@ void loop()
 // applied deadband logic
 // sends values onto lower-level commands
 void driveRobot(int power, int steer){
-  // apply MAX power safety
-  if(power > 0 && power > MAXPOWER){
-    power = MAXPOWER;
-  }
-  if(power < 0 && power < -MAXPOWER){
-    power = -MAXPOWER;
-  }
+//    monitorSerial.print("driveRobot. power: ");
+//    monitorSerial.print(power);
+//    monitorSerial.print(" | ");
+//    monitorSerial.println(steer);
   
-  if(steer < steer_deadband && steer > -steer_deadband){
-    monitorSerial.println("No steering, drive straight");
-  }
+
 
   if(power < power_deadband && power > -power_deadband){
     monitorSerial.println("No power, STOPPED");
-    driveStraight(0);
+    allSTOP();
   }else{
-    driveStraight(power);
+      if(steer < steer_deadband && steer > -steer_deadband){
+        driveStraight(power);
+      }else{
+        mixSteering(power, steer);
+      }
   }
 
-};
+}
+
+
+
+void allSTOP(){
+  power = 0;
+  Left.motor(Rear, power); //Left Rear
+  Left.motor(Front, power); //Left Front
+  Right.motor(Rear, power); //Right Rear
+  Right.motor(Front, power); //Right Front
+}
 
 
 // simplest drive motion: straight line
@@ -142,5 +157,58 @@ void driveStraight(int power){
   Right.motor(Rear, power); //Right Rear
   Right.motor(Front, power); //Right Front
 }
+
+
+// non-straight driving
+// mix the mechanum steering
+void mixSteering(int power, int steer){
+  float reducer = 0;
+  int lf = 0; // left front
+  int rf = 0; // right front
+  int lr = 0; // left rear
+  int rr = 0; // right rear
+  String movement = "na";
+  reducer = (abs(map(steer, 0, 255, 0, 130))*1.0)/100; // come up with a percentage based on amount of steer
+
+    // right: -255 to -200, crab | -199 to 0 skid
+    // left: 255 to 200, crab | 199 to 0 skid
+    
+    // SKID LEFT
+    if(steer > 0 && steer < 200){ // skid left
+      movement = "skid_left";
+      lf = power;
+      lr = power;
+      rf = power * reducer;
+      rr = power * reducer;
+    }
+
+    // CRAB LEFT
+    if(steer > 200){ // skid left
+      movement = "crab_left";
+    }
+
+    // SKID RIGHT
+    if(steer < 0 && steer > -200){ // skid left
+      movement = "skid_right";
+    }
+
+    // CRAB RIGHT
+    if(steer < -200){ // skid left
+      movement = "crab_right";
+    }
+
+
+    monitorSerial.print("mixSteering. power: ");
+    monitorSerial.print(power);
+    monitorSerial.print(" | ");
+    monitorSerial.print(steer);
+    monitorSerial.print(" | ");
+    monitorSerial.print(reducer);
+    monitorSerial.print(" | ");
+    monitorSerial.println(movement);
+}
+
+
+
 
 
