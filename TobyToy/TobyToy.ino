@@ -20,7 +20,7 @@ int throttle_min;
 int throttle_max;
 int steer; // steer mapped to -255,255
 int power; // drive power mapped to -255,255
-const int MAXPOWER = 20; // max drive power available
+const int MAXPOWER = 40; // max drive power available
 
 // software serial #1: RX = digital pin 10, TX = digital pin 11
 SoftwareSerial monitorSerial(10, 11);
@@ -168,35 +168,53 @@ void mixSteering(int power, int steer){
   int lr = 0; // left rear
   int rr = 0; // right rear
   String movement = "na";
-  reducer = (abs(map(steer, 0, 255, 0, 130))*1.0)/100; // come up with a percentage based on amount of steer
+  reducer = 1.0 - ((abs(map(steer, 0, 255, 0, 255))*1.0)/100); // come up with a percentage based on amount of steer
 
-    // right: -255 to -200, crab | -199 to 0 skid
-    // left: 255 to 200, crab | 199 to 0 skid
+    // right: -255 to -240, crab | -239 to 0 skid
+    // left: 255 to 240, crab | 239 to 0 skid
     
     // SKID LEFT
-    if(steer > 0 && steer < 200){ // skid left
+    if(steer > 0 && steer <= 240){ // skid left
       movement = "skid_left";
-      lf = power;
-      lr = power;
-      rf = power * reducer;
-      rr = power * reducer;
+      lf = power * reducer;
+      lr = power * reducer;
+      rf = power;
+      rr = power;
     }
 
     // CRAB LEFT
-    if(steer > 200){ // skid left
+    if(steer > 240){ // skid left
       movement = "crab_left";
+      lf = -power;
+      lr = power;
+      rf = power;
+      rr = -power;
     }
 
     // SKID RIGHT
-    if(steer < 0 && steer > -200){ // skid left
+    if(steer < 0 && steer >= -240){ // skid left
       movement = "skid_right";
+      rf = power * reducer;
+      rr = power * reducer;
+      lf = power;
+      lr = power;
     }
 
     // CRAB RIGHT
-    if(steer < -200){ // skid left
+    if(steer < -240){ // skid left
       movement = "crab_right";
+      lf = power;
+      lr = -power;
+      rf = -power;
+      rr = power;
     }
 
+
+    // send the commands to the motors
+    Left.motor(Rear, lr); //Left Rear
+    Left.motor(Front, lf); //Left Front
+    Right.motor(Rear, rr); //Right Rear
+    Right.motor(Front, rf); //Right Front
 
     monitorSerial.print("mixSteering. power: ");
     monitorSerial.print(power);
@@ -206,6 +224,15 @@ void mixSteering(int power, int steer){
     monitorSerial.print(reducer);
     monitorSerial.print(" | ");
     monitorSerial.println(movement);
+
+//    monitorSerial.print("mix. lf, lr, rf, rr: ");
+//    monitorSerial.print(lf);
+//    monitorSerial.print(", ");
+//    monitorSerial.print(lr);
+//    monitorSerial.print(", ");
+//    monitorSerial.print(rf);
+//    monitorSerial.print(", ");
+//    monitorSerial.println(rr);
 }
 
 
