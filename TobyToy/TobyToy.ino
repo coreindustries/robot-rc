@@ -15,11 +15,12 @@ int throttle; // normalized ch2
 int steer_min; // min value seen
 int steer_max; // max value seen
 int steer_deadband; // amount control pushes beyond to affect motion
-int power_deadband; 
+const int power_deadband = 5; 
 int throttle_min;
 int throttle_max;
 int steer; // steer mapped to -255,255
 int power; // drive power mapped to -255,255
+const int MAXPOWER = 30; // max drive power available
 
 // software serial #1: RX = digital pin 10, TX = digital pin 11
 SoftwareSerial monitorSerial(10, 11);
@@ -46,7 +47,8 @@ void setup()
   steer_deadband = 10;
   throttle_min = 910;
   throttle_max = 2000;
-  power_deadband = 30;
+//  power_deadband = 10;
+//  MAXPOWER = 50; // 255 is the absolute max
 
   // sabertooth
   SabertoothTXPinSerial.begin(9600);
@@ -72,30 +74,33 @@ void loop()
 //  throttle = ch2;
 
   // RAW VALUES
-  monitorSerial.print("Steering:"); // Print the value of 
-  monitorSerial.print(steering);        // each channel
-  monitorSerial.print(" | ");
-  monitorSerial.print("Throttle:");
-  monitorSerial.println(throttle);
+//  monitorSerial.print("Steering:"); // Print the value of 
+//  monitorSerial.print(steering);        // each channel
+//  monitorSerial.print(" | ");
+//  monitorSerial.print("Throttle:");
+//  monitorSerial.println(throttle);
 
   steer = map(steering, steer_min,steer_max, -255, 255); //center over zero
-  power = map(throttle, throttle_min, throttle_max, -255, 255);
+//  power = map(throttle, throttle_min, throttle_max, -255, 255);
+  power = map(throttle, throttle_min, throttle_max, -MAXPOWER, MAXPOWER);
   steer = constrain(steer, -255, 255); //only pass values whose absolutes are
   power = constrain(power, -255, 255); //only pass values whose absolutes are
-//  Serial.print("*Steer:"); // Print the value of 
-//  Serial.print(steer);        // each channel
-//  Serial.print(" | ");
-//  Serial.print("Power:");
-//  Serial.println(power);
+
+  
+//  monitorSerial.print("Steer:"); // Print the value of 
+//  monitorSerial.print(steer);        // each channel
+//  monitorSerial.print(" | ");
+//  monitorSerial.print("Power:");
+//  monitorSerial.println(power);
 
 
   driveRobot(power, steer);
   
   // SEND COMMANDS TO MOTOR CONTROLLERS
 //  Left.motor(Rear, 0); //Left Rear
-//  Left.motor(Front, 0); //Left Front
+//  Left.motor(Front, -10); //Left Front
 //  Right.motor(Rear, 0); //Right Rear
-//  Right.motor(Front, 0); //Right Front
+//  Right.motor(Front, 10); //Right Front
   delay(50);
   
 };
@@ -106,12 +111,21 @@ void loop()
 // applied deadband logic
 // sends values onto lower-level commands
 void driveRobot(int power, int steer){
+  // apply MAX power safety
+  if(power > 0 && power > MAXPOWER){
+    power = MAXPOWER;
+  }
+  if(power < 0 && power < -MAXPOWER){
+    power = -MAXPOWER;
+  }
+  
   if(steer < steer_deadband && steer > -steer_deadband){
-//    Serial.println("No steering, drive straight");
+    monitorSerial.println("No steering, drive straight");
   }
 
   if(power < power_deadband && power > -power_deadband){
-//    Serial.println("No power, STOPPED");
+    monitorSerial.println("No power, STOPPED");
+    driveStraight(0);
   }else{
     driveStraight(power);
   }
@@ -121,8 +135,8 @@ void driveRobot(int power, int steer){
 
 // simplest drive motion: straight line
 void driveStraight(int power){
-//  Serial.print("Drive Straight: ");
-//  Serial.println(power);
+  monitorSerial.print("Drive Straight: ");
+  monitorSerial.println(power);
   Left.motor(Rear, power); //Left Rear
   Left.motor(Front, power); //Left Front
   Right.motor(Rear, power); //Right Rear
